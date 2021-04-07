@@ -1,40 +1,104 @@
 ---
-项目作者：fuyinglong
+项目作者：gll
 
-邮箱：838106527@qq.com
+邮箱：2786768371@qq.com
 
-CSDN 昵称：你喜欢梅西吗
-
-github 主页：https://github.com/CopyDragon
+github 主页：https://github.com/liang-liang-gao
 
 ---
 
-## 项目名：chat-project-based-on-ubuntu
+## 项目名：TCP server & chat-project
 
 ### 介绍
 
-使用 C++实现的 ubuntu 环境下的聊天小项目，采用 C/S 架构，支持注册、登录、记录登录状态、私聊、群聊功能，前期使用多线程实现并发服务器，后期利用 epoll 监听+线程池处理的 Reactor 模式实现并发服务器，进行了压力测试，并采用 bitmap 实现的布隆过滤器减少对 MySQL 的查询。
+使用 C++实现的 ubuntu 环境下的聊天小项目，采用 C/S 架构，支持注册、登录、记录登录状态、注销、添加好友、私聊、群聊功能，利用 epoll 监听+线程池处理的 Reactor 模式实现并发服务器，并采用 bitmap 实现的布隆过滤器减少对 MySQL 的查询。
 
-项目中使用 TCP 网络编程实现 C/S 的信息交互，使用 Mysql 记录用户账号、密码，使用 redis 记录用户的登录状态，编写了 makefile 进行编译，使用 shell 脚本提高了开发效率，开发过程使用 git 进行版本管理，编写了说明文档。
+项目中使用 TCP 网络编程实现 C/S 的信息交互，使用 Mysql 记录用户账号、密码，使用 redis 记录用户的登录状态，编写了 makefile 进行编译，使用 shell 脚本提高了开发效率。
 
-### 主要功能：
+### 主要功能
 
 1、用户注册，数据存储到服务器主机的数据库中
 
 2、用户登录
 
-3、私聊
+3、添加好友
 
-4、群聊
+4、私聊
 
-5、记录用户登录状态，五分钟内重启进程都不需要重新登陆
+5、群聊
 
-### 项目环境：
+6、记录用户登录状态，五分钟内重启进程都不需要重新登陆
+### 详细讲解
+#### 客户端：
+    cookie：
+        1.判断是否存在cookie文件，若存在则可以将cookie发送给服务器，其中cookie中保存的是随即生成的sessionid
+        2.得到服务器的反馈，若成功则用户便直接登陆，否则需要进一步登陆
+    注册：
+        1.输入注册的用户名和密码
+        2.从服务器得到信息，据此判断是否注册成功。不成功的原因可能有用户名已存在
+    登陆：
+        1.输入登陆用户名和密码
+        2.从服务器得到信息，据此判断是否登陆成功。不成功的原因可能有用户名或密码错误，或者该账户已经登陆，不可重复登陆
+        3.若成功登陆，需要将接收到的sessionid保存下来，记录在cookie文件中，方便下次发送
+    退出：
+        1.需要将退出的消息告诉服务器，使其从数据库中将状态设置为未登录
+        2.直接退出即可
+    注销：
+        1.需要将退出的消息告诉服务器，使其从数据库中将状态设置为未登录
+        2.重新进入登陆和注册的界面
+    添加好友：
+        1.输入要添加的好友名字，并将名字发给服务器
+        2.得到服务器反馈，据此判断是否添加成功。不成功的原因可能有要添加的用户不存在，
+    私聊：
+        1.输入私聊的对象，将对象发送给服务器，
+        2.得到服务器反馈，据此判断是否成功建立私聊。不成功的原因有用户不存在或未登录，对象并不是该用户的好友
+        3.若成功建立私聊，则创建发送线程和接收线程，分别进行信息的发送和接收工作
+    群聊：
+        1.输入群聊的群号，将群号发送给服务器
+        2.创建发送线程和接收线程，分别进行信息的发送和接收工作
+#### 服务器端：
+    redis：
+        key-value::sessionid name，并设置生存时间为300s
+        即保存的是用户的登陆状态。根据sessionid查找到对应消息时，可以直接登陆；若未保存或过期，则告诉客户端需要重新登录
+    布隆过滤器：
+        将用户名字映射到二进制位图上，登陆时如果位图上没有则一定不存在该用户，借此来解决穿透问题
+    cookie：
+        1.接收cookie文件，取出其中的sessionid，并在redis中进行查找
+        2.若成功找到对应的一条信息，并且该用户之前未登录，则用户可以利用redis直接登陆，记得登陆要修改name到socket的哈希映射；否则需要重新登录。
+    注册：
+        1.接收客户端发来的用户名和密码，并在数据库中进行查找，若用户名位存在，则注册成功；否则不成功
+        2.若成功注册，需要将对应的name, pass, online(登陆状体)插入到数据库中
+    登陆：
+        1.接收客户端发来的用户名和密码，并首先利用布隆过滤器判断该用户是否在数据库存在，若不存在，则直接反馈给客户端
+        2.若存在，则需要在数据库中进一步判断该用户是否已经登陆，若已经登陆则反馈给客户端不能重复登陆
+        2.若之前未登录，则说明此次可以登陆,此时首先修改数据库中登陆状态；然后需要随即生成的sessionid反馈给客户端
+    退出：
+        1.修改数据库中登陆状态
+        2.反馈给客户端
+    注销：
+        1.修改数据库中登陆状态
+        2.反馈给客户端
+    添加好友：
+        1.接收好友名字，并判断该名字是否存在，若不存在直接返回
+        2.若存在则需要将对应的名字加入当前用户的好友链表中，并反馈给客户端
+    私聊建立：
+        1.接收私聊对象的名字，首先根据哈希映射判断该用户是否存在或者登陆，不存在则直接反馈给客户端；
+        2.若存在，还需要判断该对象是否是当前用户的好友，若不是，也需要反馈给客户端
+        3.若是当前用户的好友，则可以建立对应的发送用户和接收用户之间的哈希映射，方便之后数据传送哦
+    内容转发：
+        1.之前已经建立了私聊，这里首先需要根据转发的用户，找到对应的转发的对象，若未找到，则需要重新查找
+        2.若找到，便将数据发送给对象
+    群聊建立：
+        1.将当前用户绑定到对应的群聊号中的set中
+    广播群消息：
+        1.根据当前的socket_fd找到对应的用户，以及用户所在的群set
+        2.将所要转发的消息发送给set中除当前用户之外的所有用户
 
+### 项目环境
 
 1、ubuntu 20.04.1
 
-2、vi 编辑器
+2、vscode
 
 3、g++
 
@@ -42,11 +106,9 @@ github 主页：https://github.com/CopyDragon
 
 5、redis 4.0.8
 
-6、boost 库 1.71 版本
+6、hiredis 库
 
-7、hiredis 库
-
-### 主要技术：
+### 主要技术
 
 1、C++语言、STL 库容器和函数
 
@@ -54,37 +116,19 @@ github 主页：https://github.com/CopyDragon
 
 3、IO 多路复用+自己实现的线程池实现并发服务器（使用 epoll 的 ET 边缘触发、EPOLLONESHOT）
 
-4、使用 boost 线程池实现并发服务器
+4、TCP socket 网络编程
 
-5、TCP socket 网络编程
+5、Mysql 数据库以及 SQL 语句
 
-6、Mysql 数据库以及 SQL 语句
+6、redis 数据库（HASH 数据类型、设置键的过期时间）
 
-7、redis 数据库（HASH 数据类型、设置键的过期时间）
+7、session、cookie（利用 redis 保存 session 对象，服务器随机生成 sessionid 发往客户端保存到 cookie)
 
-8、session、cookie（利用 redis 保存 session 对象，服务器随机生成 sessionid 发往客户端保存到 cookie)
+8、线程互斥锁、条件变量
 
-9、线程互斥锁、自旋锁、条件变量
+9、makefile 编译
 
-10、makefile 编译
-
-11、git 版本管理
-
-12、shell 脚本测试
-
-13、使用bitmap实现布隆过滤器
-
-### 设计思路：
-
-1、用 Mysql 记录客户的账号和密码，注册和登录都要经过 Mysql
-
-2、使用 C/S 模型完成私聊和群聊功能，所有的请求和聊天记录都会经过服务器并转发，减轻客户端压力，客户端只维护和服务器的 TCP 连接
-
-3、利用 Redis 记录用户登录状态（HASH 类型，键为 sessionid，值为 session 对象，键五分钟后过期），当用户成功登录时服务器会利用随机算法生成 sessionid 发送到客户端保存，客户登录时会优先发送 cookie 到服务器检查，如果检查通过就不用输入账号密码登录。
-
-4、循序渐进实现了三种服务器：多线程服务器、线程池服务器、IO 多路复用+线程池服务器
-
-5、IO 多路复用+线程池服务器：采用 epoll 的边缘触发 ET 模式，对所有的读事件感兴趣，监听到某个 socket 上有事件触发时将通知线程池处理，线程池中的工作线程从缓冲区中读出数据并进行业务处理，同时 epoll 采用 EPOLLSHOT 模式，防止多个线程在同一 socket 上处理。
+10、使用bitmap实现布隆过滤器
 
 ### Redis 记录登录状态：
 
@@ -100,10 +144,6 @@ github 主页：https://github.com/CopyDragon
 
 sessionid 大小为 10 位，每位由数字、小写字母、大写字母随机组成，理论上有(9+26+26)^10 种组合
 
-### 压力测试思路
-
-client.cpp 会向服务器发起若干个并发连接，并在这些连接上对服务器发出登录请求，每次使用的用户名和密码都是从本地的 account.txt 文件中抽取，具体发动多少轮请求可以自己设置
-
 ### bitmap 实现的布隆过滤器优化：
 
 服务器启动时，会先根据所有数据来初始化布隆过滤器，当收到登录请求时，会先根据布隆过滤器来判断该用户名是否一定不存在，如果能够判断不存在就不会查询 MySQL 数据库，减小开销。
@@ -114,59 +154,32 @@ client.cpp 会向服务器发起若干个并发连接，并在这些连接上对
 
 ### 文件说明：
 
-1、log.txt：git 导出的版本日志，记录了版本更新历史
+1、makefile：用于编译
 
-2、test_mysql 文件夹：里面的文件用于测试和数据库是否成功建立连接，和项目没有直接联系
+2、global.h、global.cpp：声明全局变量
 
-3、start_mysql.sh:启动、登录数据库的 shell 脚本，使用命令 sh start_mysql.sh 执行
+3、cookie.txt：把程序跑起来才会在客户端产生的文件，保存 sessionid
 
-4、makefile：用于编译
+4、RAII.h：RAII类的基本操作
 
-5、make_save:makefile 的副本
+5、myDB.h, myDB.cpp：mysql数据库的基本操作
 
-6、global.h、global.cpp：声明全局变量
+6、threahreadpool.h：线程池类的基本操作
 
-7、server.cpp：服务器的基础代码
+7、clientV1.cpp：客户端的基础代码
 
-8、HandleServer.h、HandleServer.cpp：服务器的线程函数代码
+8、clientV1：可执行文件，客户端
 
-9、client.cpp：客户端的基础代码
+9、HandleClient.h、HandleClient.cpp：客户端的线程函数代码
 
-10、HandleClient.h、HandleClient.cpp：客户端的线程函数代码
+10、serverV1.cpp：IO 多路复用+线程池实现的并发服务器
 
-11、make_and_run.sh：编译运行的 shell 脚本
+11、serverV1：可执行文件，IO 多路复用+线程池实现的服务器
 
-12、cookie.txt：把程序跑起来才会在客户端产生的文件，保存 sessionid
+12、make_and_run.sh：编译并运行server的 shell 脚本
 
-13、test_thread_pool 文件夹：里面的文件用于测试 boost 库的线程池使用
+13、make_client_run.sh：客户端运行的shell脚本
 
-14、start_redis.sh：快速启动 redis 服务的 shell 脚本，使用命令 source start_redis.sh 执行
-
-15、serverUseThreadPool.cpp：利用线程池实现的服务器的基本代码
-
-16、HandleServerUseThreadPool.cpp：线程池实现的服务器调用的线程函数代码
-
-17、server：可执行文件，多线程服务器
-
-18、serverUseThreadPool：可执行文件，线程池服务器
-
-19、client：可执行文件，客户端
-
-20、serverV2.cpp：IO 多路复用+线程池实现的并发服务器 2.0
-
-21、HandleServerV2.cpp：serverV2 使用线程池调用该函数处理事件
-
-22、HandleServerV2.h：文件 21 的头文件
-
-23、serverV2：可执行文件，IO 多路复用+线程池实现的服务器
-
-24、stress_test 文件夹：里面的文件用于压力测试，具体的说明可见文件夹中的 aboutStressTest.md 文件
-
-25、asio 文件夹：包含 boost 库的 asio 库源代码，可以看该源代码来了解线程池实现
-
-### 特别注意：
-
-server、serverUseThreadPool、serverV2 都是服务器，只运行其中一个即可，server 是普通的多线程服务器，serverUseThreadPool 是用线程池实现的服务器，serverV2 是 IO 多路复用+线程池实现的服务器
 
 ### 运行环境说明：
 
@@ -186,15 +199,13 @@ server、serverUseThreadPool、serverV2 都是服务器，只运行其中一个�
 
 1、首先在 mysql 控制台创建一个数据库叫 test_connect，再创一个表叫 user，表有两项 VARCHAR 类型属性：NAME 和 PASSWORD，将 NAME 设为主键
 
-2、然后修改 server 和 serverUseThreadPool.cpp 代码中的 ip 地址，更改为自己的服务器 ip 地址
+2、然后修改 make_and_run.sh 和 make_client_run 代码中的 ip 地址，更改为自己的服务器 ip 地址
 
 3、启动 Mysql、redis 服务
 
-4、执行 make_and_run 脚本得到可执行文件 client、server、serverUseThreadPool、serverV2
+4、执行 make_and_run 脚本得到可执行文件,并开始执行服务器
 
-5、用一个终端先运行 server 或者 serverUseThreadPool 或者 serverV2
-
-6、再开另外一个或多个终端运行 client
+6、再开另外一个或多个终端运行make_client_run
 
 ### 备注
 
