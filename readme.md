@@ -120,7 +120,7 @@ github 主页：https://github.com/liang-liang-gao
 
 5、Mysql 数据库以及 SQL 语句
 
-6、redis 数据库（HASH 数据类型、设置键的过期时间）
+6、redis 数据库（string数据类型、设置键的过期时间）
 
 7、session、cookie（利用 redis 保存 session 对象，服务器随机生成 sessionid 发往客户端保存到 cookie)
 
