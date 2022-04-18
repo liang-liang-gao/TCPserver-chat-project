@@ -181,20 +181,6 @@ sessionid 大小为 10 位，每位由数字、小写字母、大写字母随机
 13、make_client_run.sh：客户端运行的shell脚本
 
 
-### 运行环境说明：
-
-1、基于 ubuntu 系统
-
-2、装有 g++编译器及相关组件
-
-3、服务器安装了 mysql（安装教程：https://blog.csdn.net/weixin_44164489/article/details/108926885）
-
-4、服务器安装了 redis（安装教程：https://blog.csdn.net/weixin_44164489/article/details/109015099)
-
-5、安装了 boost 库 1.71 版本
-
-6、安装了 hiredis 库（安装教程：https://blog.csdn.net/weixin_44164489/article/details/110876479)
-
 ### 使用说明：
 
 1、首先在 mysql 控制台创建一个数据库叫 test_connect，再创一个表叫 user，表有两项 VARCHAR 类型属性：NAME 和 PASSWORD，将 NAME 设为主键
